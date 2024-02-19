@@ -69,19 +69,19 @@ public class HttpConnection: Connection {
         startDispatchGroup.enter()
 
         if options.skipNegotiation {
-            transport = try! self.transportFactory.createTransport(availableTransports: [TransportDescription(transportType: TransportType.webSockets, transferFormats: [TransferFormat.text, TransferFormat.binary])])
+            transport = try? transportFactory.createTransport(availableTransports: [TransportDescription(transportType: TransportType.webSockets, transferFormats: [TransferFormat.text, TransferFormat.binary])])
             startTransport(connectionId: nil, connectionToken: nil)
         } else {
-            negotiate(negotiateUrl: createNegotiateUrl(), accessToken: nil) { negotiationResponse in
+            negotiate(negotiateUrl: createNegotiateUrl(), accessToken: nil) { [weak self] negotiationResponse in
                 do {
-                    self.transport = try self.transportFactory.createTransport(availableTransports: negotiationResponse.availableTransports)
+                    self?.transport = try self?.transportFactory.createTransport(availableTransports: negotiationResponse.availableTransports)
                 } catch {
-                    self.logger.log(logLevel: .error, message: "Creating transport failed: \(error)")
-                    self.failOpenWithError(error: error, changeState: true)
+                    self?.logger.log(logLevel: .error, message: "Creating transport failed: \(error)")
+                    self?.failOpenWithError(error: error, changeState: true)
                     return
                 }
 
-                self.startTransport(connectionId: negotiationResponse.connectionId, connectionToken: negotiationResponse.connectionToken)
+                self?.startTransport(connectionId: negotiationResponse.connectionId, connectionToken: negotiationResponse.connectionToken)
             }
         }
     }
@@ -93,46 +93,47 @@ public class HttpConnection: Connection {
         }
 
         let httpClient = options.httpClientFactory(options)
-        httpClient.post(url: negotiateUrl, body: nil) {httpResponse, error in
+        httpClient.post(url: negotiateUrl, body: nil) { [weak self] httpResponse, error in
             if let e = error {
-                self.logger.log(logLevel: .error, message: "Negotiate failed due to: \(e))")
-                self.failOpenWithError(error: e, changeState: true)
+                self?.logger.log(logLevel: .error, message: "Negotiate failed due to: \(e))")
+                self?.failOpenWithError(error: e, changeState: true)
                 return
             }
 
             guard let httpResponse = httpResponse else {
-                self.logger.log(logLevel: .error, message: "Negotiate returned (nil) httpResponse")
-                self.failOpenWithError(error: SignalRError.invalidNegotiationResponse(message: "negotiate returned nil httpResponse."), changeState: true)
+                self?.logger.log(logLevel: .error, message: "Negotiate returned (nil) httpResponse")
+                self?.failOpenWithError(error: SignalRError.invalidNegotiationResponse(message: "negotiate returned nil httpResponse."), changeState: true)
                 return
             }
 
             if httpResponse.statusCode == 200 {
-                self.logger.log(logLevel: .debug, message: "Negotiate completed with OK status code")
+                self?.logger.log(logLevel: .debug, message: "Negotiate completed with OK status code")
 
                 do {
                     let payload = httpResponse.contents
-                    self.logger.log(logLevel: .debug, message: "Negotiate response: \(payload != nil ? String(data: payload!, encoding: .utf8) ?? "(nil)" : "(nil)")")
+                    self?.logger.log(logLevel: .debug, message: "Negotiate response: \(payload != nil ? String(data: payload!, encoding: .utf8) ?? "(nil)" : "(nil)")")
 
                     switch try NegotiationPayloadParser.parse(payload: payload) {
                     case let redirection as Redirection:
-                        self.logger.log(logLevel: .debug, message: "Negotiate redirects to \(redirection.url)")
-                        self.url = redirection.url
-                        var negotiateUrl = self.url
-                        negotiateUrl.appendPathComponent("negotiate")
-                        self.negotiate(negotiateUrl: negotiateUrl, accessToken: redirection.accessToken, negotiateDidComplete: negotiateDidComplete)
+                        self?.logger.log(logLevel: .debug, message: "Negotiate redirects to \(redirection.url)")
+                        self?.url = redirection.url
+                        if var negotiateUrl = self?.url {
+                            negotiateUrl.appendPathComponent("negotiate")
+                            self?.negotiate(negotiateUrl: negotiateUrl, accessToken: redirection.accessToken, negotiateDidComplete: negotiateDidComplete)
+                        }
                     case let negotiationResponse as NegotiationResponse:
-                        self.logger.log(logLevel: .debug, message: "Negotiation response received")
+                        self?.logger.log(logLevel: .debug, message: "Negotiation response received")
                         negotiateDidComplete(negotiationResponse)
                     default:
                         throw SignalRError.invalidNegotiationResponse(message: "internal error - unexpected negotiation payload")
                     }
                 } catch {
-                    self.logger.log(logLevel: .error, message: "Parsing negotiate response failed: \(error)")
-                    self.failOpenWithError(error: error, changeState: true)
+                    self?.logger.log(logLevel: .error, message: "Parsing negotiate response failed: \(error)")
+                    self?.failOpenWithError(error: error, changeState: true)
                 }
             } else {
-                self.logger.log(logLevel: .error, message: "HTTP request error. statusCode: \(httpResponse.statusCode)\ndescription:\(httpResponse.contents != nil ? String(data: httpResponse.contents!, encoding: .utf8) ?? "(nil)" : "(nil)")")
-                self.failOpenWithError(error: SignalRError.webError(statusCode: httpResponse.statusCode), changeState: true)
+                self?.logger.log(logLevel: .error, message: "HTTP request error. statusCode: \(httpResponse.statusCode)\ndescription:\(httpResponse.contents != nil ? String(data: httpResponse.contents!, encoding: .utf8) ?? "(nil)" : "(nil)")")
+                self?.failOpenWithError(error: SignalRError.webError(statusCode: httpResponse.statusCode), changeState: true)
             }
         }
     }
@@ -183,8 +184,8 @@ public class HttpConnection: Connection {
         }
 
         logger.log(logLevel: .debug, message: "Invoking connectionDidFailToOpen")
-        options.callbackQueue.async {
-            self.delegate?.connectionDidFailToOpen(error: error)
+        options.callbackQueue.async { [weak self] in
+            self?.delegate?.connectionDidFailToOpen(error: error)
         }
     }
 
@@ -205,7 +206,7 @@ public class HttpConnection: Connection {
     public func stop(stopError: Error? = nil) {
         logger.log(logLevel: .info, message: "Stopping connection")
 
-        let previousState = self.changeState(from: nil, to: .stopped)
+        let previousState = changeState(from: nil, to: .stopped)
         if previousState == .stopped {
             logger.log(logLevel: .info, message: "Connection already stopped")
             return
