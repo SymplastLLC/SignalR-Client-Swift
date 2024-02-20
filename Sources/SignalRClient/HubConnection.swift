@@ -127,7 +127,7 @@ public class HubConnection {
 
         var callbackRegistered = false
         hubConnectionQueue.sync {
-            callbackRegistered = callbacks.keys.contains(method)
+            callbackRegistered = callbacks[method] != nil
             callbacks[method] = callback
         }
 
