@@ -112,7 +112,7 @@ public class ClientInvocationResult<T: Decodable>: HubMessage, Decodable {
     public required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: ClientInvocationResult.CodingKeys.self)
         target = try container.decode(String.self, forKey: .target)
-        arguments = try? container.decodeIfPresent(T.self, forKey: .arguments)
+        arguments = try container.decodeIfPresent(T.self, forKey: .arguments)
     }
 
     enum CodingKeys: String, CodingKey {
