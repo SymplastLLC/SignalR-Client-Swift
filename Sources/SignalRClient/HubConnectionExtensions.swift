@@ -555,7 +555,7 @@ public extension HubConnection {
      - parameter callback: a callback that will be called when the client side method is invoked from the server
      */
     func on(method: String, callback: @escaping () -> Void) {
-        let cb: (ArgumentExtractor) throws -> Void = { argumentExtractor in
+        let cb: (Data) throws -> Void = { _ in
             callback()
         }
 
@@ -576,8 +576,8 @@ public extension HubConnection {
      ```
      */
     func on<T1: Decodable>(method: String, callback: @escaping (_ arg1: T1?) -> Void) {
-        let cb: (ArgumentExtractor) throws -> Void = { argumentExtractor in
-            let arg1 = try argumentExtractor.getArgument(type: T1.self)
+        let cb: (Data) throws -> Void = { [weak self] data in
+            let arg1 = try self?.decoder.decode(ClientInvocationResult<T1>.self, from: data).arguments
             callback(arg1)
         }
 
@@ -600,9 +600,9 @@ public extension HubConnection {
      */
     func on<T1: Decodable, T2: Decodable>(method: String,
                                           callback: @escaping (_ arg1: T1?, _ arg2: T2?) -> Void) {
-        let cb: (ArgumentExtractor) throws -> Void = { argumentExtractor in
-            let arg1 = try argumentExtractor.getArgument(type: T1.self)
-            let arg2 = try argumentExtractor.getArgument(type: T2.self)
+        let cb: (Data) throws -> Void = { [weak self] data in
+            let arg1 = try self?.decoder.decode(ClientInvocationResult<T1>.self, from: data).arguments
+            let arg2 = try self?.decoder.decode(ClientInvocationResult<T2>.self, from: data).arguments
             callback(arg1, arg2)
         }
 
@@ -625,10 +625,10 @@ public extension HubConnection {
      ```
      */
     func on<T1: Decodable, T2: Decodable, T3: Decodable>(method: String, callback: @escaping (_ arg1: T1?, _ arg2: T2?, _ arg3: T3?) -> Void) {
-        let cb: (ArgumentExtractor) throws -> Void = { argumentExtractor in
-            let arg1 = try argumentExtractor.getArgument(type: T1.self)
-            let arg2 = try argumentExtractor.getArgument(type: T2.self)
-            let arg3 = try argumentExtractor.getArgument(type: T3.self)
+        let cb: (Data) throws -> Void = { [weak self] data in
+            let arg1 = try self?.decoder.decode(ClientInvocationResult<T1>.self, from: data).arguments
+            let arg2 = try self?.decoder.decode(ClientInvocationResult<T2>.self, from: data).arguments
+            let arg3 = try self?.decoder.decode(ClientInvocationResult<T3>.self, from: data).arguments
             callback(arg1, arg2, arg3)
         }
 
@@ -652,11 +652,11 @@ public extension HubConnection {
      ```
      */
     func on<T1: Decodable, T2: Decodable, T3: Decodable, T4: Decodable>(method: String, callback: @escaping (_ arg1: T1?, _ arg2: T2?, _ arg3: T3?, _ arg4: T4?) -> Void) {
-        let cb: (ArgumentExtractor) throws -> Void = { argumentExtractor in
-            let arg1 = try argumentExtractor.getArgument(type: T1.self)
-            let arg2 = try argumentExtractor.getArgument(type: T2.self)
-            let arg3 = try argumentExtractor.getArgument(type: T3.self)
-            let arg4 = try argumentExtractor.getArgument(type: T4.self)
+        let cb: (Data) throws -> Void = { [weak self] data in
+            let arg1 = try self?.decoder.decode(ClientInvocationResult<T1>.self, from: data).arguments
+            let arg2 = try self?.decoder.decode(ClientInvocationResult<T2>.self, from: data).arguments
+            let arg3 = try self?.decoder.decode(ClientInvocationResult<T3>.self, from: data).arguments
+            let arg4 = try self?.decoder.decode(ClientInvocationResult<T4>.self, from: data).arguments
             callback(arg1, arg2, arg3, arg4)
         }
 
@@ -681,12 +681,12 @@ public extension HubConnection {
      ```
      */
     func on<T1: Decodable, T2: Decodable, T3: Decodable, T4: Decodable, T5: Decodable>(method: String, callback: @escaping (_ arg1: T1?, _ arg2: T2?, _ arg3: T3?, _ arg4: T4?, _ arg5: T5?) -> Void) {
-        let cb: (ArgumentExtractor) throws -> Void = { argumentExtractor in
-            let arg1 = try argumentExtractor.getArgument(type: T1.self)
-            let arg2 = try argumentExtractor.getArgument(type: T2.self)
-            let arg3 = try argumentExtractor.getArgument(type: T3.self)
-            let arg4 = try argumentExtractor.getArgument(type: T4.self)
-            let arg5 = try argumentExtractor.getArgument(type: T5.self)
+        let cb: (Data) throws -> Void = { [weak self] data in
+            let arg1 = try self?.decoder.decode(ClientInvocationResult<T1>.self, from: data).arguments
+            let arg2 = try self?.decoder.decode(ClientInvocationResult<T2>.self, from: data).arguments
+            let arg3 = try self?.decoder.decode(ClientInvocationResult<T3>.self, from: data).arguments
+            let arg4 = try self?.decoder.decode(ClientInvocationResult<T4>.self, from: data).arguments
+            let arg5 = try self?.decoder.decode(ClientInvocationResult<T5>.self, from: data).arguments
 
             callback(arg1, arg2, arg3, arg4, arg5)
         }
@@ -713,13 +713,13 @@ public extension HubConnection {
      ```
      */
     func on<T1: Decodable, T2: Decodable, T3: Decodable, T4: Decodable, T5: Decodable, T6: Decodable>(method: String, callback: @escaping (_ arg1: T1?, _ arg2: T2?, _ arg3: T3?, _ arg4: T4?, _ arg5: T5?, _ arg6: T6?) -> Void) {
-        let cb: (ArgumentExtractor) throws -> Void = { argumentExtractor in
-            let arg1 = try argumentExtractor.getArgument(type: T1.self)
-            let arg2 = try argumentExtractor.getArgument(type: T2.self)
-            let arg3 = try argumentExtractor.getArgument(type: T3.self)
-            let arg4 = try argumentExtractor.getArgument(type: T4.self)
-            let arg5 = try argumentExtractor.getArgument(type: T5.self)
-            let arg6 = try argumentExtractor.getArgument(type: T6.self)
+        let cb: (Data) throws -> Void = { [weak self] data in
+            let arg1 = try self?.decoder.decode(ClientInvocationResult<T1>.self, from: data).arguments
+            let arg2 = try self?.decoder.decode(ClientInvocationResult<T2>.self, from: data).arguments
+            let arg3 = try self?.decoder.decode(ClientInvocationResult<T3>.self, from: data).arguments
+            let arg4 = try self?.decoder.decode(ClientInvocationResult<T4>.self, from: data).arguments
+            let arg5 = try self?.decoder.decode(ClientInvocationResult<T5>.self, from: data).arguments
+            let arg6 = try self?.decoder.decode(ClientInvocationResult<T6>.self, from: data).arguments
 
             callback(arg1, arg2, arg3, arg4, arg5, arg6)
         }
@@ -747,14 +747,14 @@ public extension HubConnection {
      ```
      */
     func on<T1: Decodable, T2: Decodable, T3: Decodable, T4: Decodable, T5: Decodable, T6: Decodable, T7: Decodable>(method: String, callback: @escaping (_ arg1: T1?, _ arg2: T2?, _ arg3: T3?, _ arg4: T4?, _ arg5: T5?, _ arg6: T6?, _ arg7: T7?) -> Void) {
-        let cb: (ArgumentExtractor) throws -> Void = { argumentExtractor in
-            let arg1 = try argumentExtractor.getArgument(type: T1.self)
-            let arg2 = try argumentExtractor.getArgument(type: T2.self)
-            let arg3 = try argumentExtractor.getArgument(type: T3.self)
-            let arg4 = try argumentExtractor.getArgument(type: T4.self)
-            let arg5 = try argumentExtractor.getArgument(type: T5.self)
-            let arg6 = try argumentExtractor.getArgument(type: T6.self)
-            let arg7 = try argumentExtractor.getArgument(type: T7.self)
+        let cb: (Data) throws -> Void = { [weak self] data in
+            let arg1 = try self?.decoder.decode(ClientInvocationResult<T1>.self, from: data).arguments
+            let arg2 = try self?.decoder.decode(ClientInvocationResult<T2>.self, from: data).arguments
+            let arg3 = try self?.decoder.decode(ClientInvocationResult<T3>.self, from: data).arguments
+            let arg4 = try self?.decoder.decode(ClientInvocationResult<T4>.self, from: data).arguments
+            let arg5 = try self?.decoder.decode(ClientInvocationResult<T5>.self, from: data).arguments
+            let arg6 = try self?.decoder.decode(ClientInvocationResult<T6>.self, from: data).arguments
+            let arg7 = try self?.decoder.decode(ClientInvocationResult<T7>.self, from: data).arguments
 
             callback(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
         }
@@ -783,15 +783,15 @@ public extension HubConnection {
      ```
      */
     func on<T1: Decodable, T2: Decodable, T3: Decodable, T4: Decodable, T5: Decodable, T6: Decodable, T7: Decodable, T8: Decodable>(method: String, callback: @escaping (_ arg1: T1?, _ arg2: T2?, _ arg3: T3?, _ arg4: T4?, _ arg5: T5?, _ arg6: T6?, _ arg7: T7?, _ arg8: T8?) -> Void) {
-        let cb: (ArgumentExtractor) throws -> Void = { argumentExtractor in
-            let arg1 = try argumentExtractor.getArgument(type: T1.self)
-            let arg2 = try argumentExtractor.getArgument(type: T2.self)
-            let arg3 = try argumentExtractor.getArgument(type: T3.self)
-            let arg4 = try argumentExtractor.getArgument(type: T4.self)
-            let arg5 = try argumentExtractor.getArgument(type: T5.self)
-            let arg6 = try argumentExtractor.getArgument(type: T6.self)
-            let arg7 = try argumentExtractor.getArgument(type: T7.self)
-            let arg8 = try argumentExtractor.getArgument(type: T8.self)
+        let cb: (Data) throws -> Void = { [weak self] data in
+            let arg1 = try self?.decoder.decode(ClientInvocationResult<T1>.self, from: data).arguments
+            let arg2 = try self?.decoder.decode(ClientInvocationResult<T2>.self, from: data).arguments
+            let arg3 = try self?.decoder.decode(ClientInvocationResult<T3>.self, from: data).arguments
+            let arg4 = try self?.decoder.decode(ClientInvocationResult<T4>.self, from: data).arguments
+            let arg5 = try self?.decoder.decode(ClientInvocationResult<T5>.self, from: data).arguments
+            let arg6 = try self?.decoder.decode(ClientInvocationResult<T6>.self, from: data).arguments
+            let arg7 = try self?.decoder.decode(ClientInvocationResult<T7>.self, from: data).arguments
+            let arg8 = try self?.decoder.decode(ClientInvocationResult<T8>.self, from: data).arguments
             callback(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
         }
 

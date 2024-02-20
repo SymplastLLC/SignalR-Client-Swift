@@ -11,7 +11,7 @@ import Foundation
 public class JSONHubProtocol: HubProtocol {
     private static let recordSeparator = UInt8(0x1e)
     private let encoder: JSONEncoder
-    private let decoder: JSONDecoder
+    let decoder: JSONDecoder
     private let logger: Logger
     public let name = "json"
     public let version = 1
@@ -43,7 +43,7 @@ public class JSONHubProtocol: HubProtocol {
         logger.log(logLevel: .debug, message: "Message received: \(String(data: payload, encoding: .utf8) ?? "(empty)")")
 
         do {
-        let messageType = try getMessageType(payload: payload)
+            let messageType = try getMessageType(payload: payload)
             switch messageType {
             case .Invocation:
                 return try decoder.decode(ClientInvocationMessage.self, from: payload)
@@ -68,7 +68,9 @@ public class JSONHubProtocol: HubProtocol {
         struct MessageTypeHelper: Decodable {
             let type: MessageType
 
-            private enum CodingKeys: String, CodingKey { case type }
+            private enum CodingKeys: String, CodingKey {
+                case type
+            }
         }
 
         do {

@@ -19,9 +19,10 @@ public class HubConnection {
     private var invocationId: Int = 0
     private let hubConnectionQueue: DispatchQueue
     private var pendingCalls = [String: ServerInvocationHandler]()
-    private var callbacks = [String: (ArgumentExtractor) throws -> Void]()
+    private var callbacks = [String: (Data) throws -> Void]()
     private var handshakeStatus: HandshakeStatus = .needsHandling(false)
     private let logger: Logger
+    private(set) var decoder: JSONDecoder
 
     private var connection: Connection
     private var connectionDelegate: HubConnectionConnectionDelegate?
@@ -44,7 +45,7 @@ public class HubConnection {
      successfully started.
      */
     public var connectionId: String? {
-        return connection.connectionId
+        connection.connectionId
     }
 
     /**
@@ -60,6 +61,7 @@ public class HubConnection {
 
     public init(connection: Connection, hubProtocol: HubProtocol, hubConnectionOptions: HubConnectionOptions, logger: Logger = NullLogger()) {
         logger.log(logLevel: .debug, message: "HubConnection init")
+        decoder = JSONDecoder()
         self.connection = connection
         self.hubProtocol = hubProtocol
         self.keepAliveIntervalInSeconds = hubConnectionOptions.keepAliveInterval
@@ -120,7 +122,7 @@ public class HubConnection {
      - parameter argumentExtractor: an object allowing extracting arguments for the callback
      - note: Consider using typed `.on` extension methods defined on the `HubConnectionExtensions` class.
      */
-    public func on(method: String, callback: @escaping (_ argumentExtractor: ArgumentExtractor) throws -> Void) {
+    public func on(method: String, callback: @escaping (_ argumentExtractor: Data) throws -> Void) {
         logger.log(logLevel: .info, message: "Registering client side hub method: '\(method)'")
 
         var callbackRegistered = false
@@ -405,7 +407,7 @@ public class HubConnection {
                     guard let msg = incomingMessage as? ClientInvocationMessage else {
                         throw SignalRError.invalidOperation(message: "Unsupported message type: \(incomingMessage.type.rawValue)")
                     }
-                    handleInvocation(message: msg)
+                    handleInvocation(message: msg, data: dataTmp)
                 case MessageType.Close:
                     connection.stop(stopError: SignalRError.serverClose(message: (incomingMessage as! CloseMessage).error))
                 case MessageType.Ping:
@@ -451,8 +453,8 @@ public class HubConnection {
         }
     }
 
-    private func handleInvocation(message: ClientInvocationMessage) {
-        var callback: ((ArgumentExtractor) throws -> Void)?
+    private func handleInvocation(message: ClientInvocationMessage, data: Data) {
+        var callback: ((Data) throws -> Void)?
 
         self.hubConnectionQueue.sync {
             callback = callbacks[message.target]
@@ -461,7 +463,7 @@ public class HubConnection {
         if callback != nil {
             callbackQueue.async { [weak self] in
                 do {
-                    try callback?(ArgumentExtractor(clientInvocationMessage: message))
+                    try callback?(data)
                 } catch {
                     self?.logger.log(logLevel: .error, message: "Invoking client hub method \(message.target) failed due to: \(error)")
                 }
@@ -626,7 +628,7 @@ public class ArgumentExtractor {
         - there are no more arguments to be retrieved
      */
     public func getArgument<T: Decodable>(type: T.Type) throws -> T? {
-        return try clientInvocationMessage.getArgument(type: type)
+        try clientInvocationMessage.getArgument(type: type)
     }
 
     /**
@@ -635,7 +637,7 @@ public class ArgumentExtractor {
      - returns: `true` if there are more arguments to retrieve. `false` otherwise
      */
     public func hasMoreArgs() -> Bool {
-        return clientInvocationMessage.hasMoreArgs
+        clientInvocationMessage.hasMoreArgs
     }
 }
 

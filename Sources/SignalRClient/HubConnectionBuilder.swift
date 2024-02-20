@@ -20,7 +20,7 @@ import Foundation
  */
 public class HubConnectionBuilder {
     private let url: URL
-    private var hubProtocolFactory: (Logger) -> HubProtocol = {logger in JSONHubProtocol(logger: logger)}
+    private var hubProtocolFactory: (Logger) -> HubProtocol = { JSONHubProtocol(logger: $0) }
     private let httpConnectionOptions = HttpConnectionOptions()
     private let hubConnectionOptions = HubConnectionOptions()
     private var logger: Logger = NullLogger()
@@ -186,6 +186,6 @@ public extension HubConnectionBuilder {
      A convenience method for configuring a `HubConnection` to use the `JSONHubProtocol`.
      */
     func withJSONHubProtocol() -> HubConnectionBuilder {
-        return self.withHubProtocol(hubProtocolFactory: {logger in JSONHubProtocol(logger: logger)})
+        withHubProtocol(hubProtocolFactory: { JSONHubProtocol(logger: $0) })
     }
 }

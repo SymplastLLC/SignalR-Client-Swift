@@ -83,11 +83,9 @@ public class ClientInvocationMessage: HubMessage, Decodable {
     private var arguments: UnkeyedDecodingContainer?
 
     public required init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let container = try decoder.container(keyedBy: ClientInvocationMessage.CodingKeys.self)
         target = try container.decode(String.self, forKey: .target)
-        if container.contains(.arguments) {
-            arguments = try container.nestedUnkeyedContainer(forKey: .arguments)
-        }
+        arguments = try? container.nestedUnkeyedContainer(forKey: .arguments)
     }
 
     public func getArgument<T: Decodable>(type: T.Type) throws -> T? {
@@ -95,12 +93,26 @@ public class ClientInvocationMessage: HubMessage, Decodable {
     }
 
     var hasMoreArgs: Bool {
-        get {
-            if let arguments {
-                return !arguments.isAtEnd
-            }
-            return false
-        }
+        !(arguments?.isAtEnd ?? true)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case target
+        case invocationId
+        case arguments
+    }
+}
+
+public class ClientInvocationResult<T: Decodable>: HubMessage, Decodable {
+    public let type = MessageType.Invocation
+    public let target: String
+    public var arguments: T?
+
+    public required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: ClientInvocationResult.CodingKeys.self)
+        target = try container.decode(String.self, forKey: .target)
+        arguments = try? container.decodeIfPresent(T.self, forKey: .arguments)
     }
 
     enum CodingKeys: String, CodingKey {
