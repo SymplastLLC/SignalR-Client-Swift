@@ -80,7 +80,7 @@ public class ServerInvocationMessage: HubMessage, Encodable {
 public class ClientInvocationMessage: HubMessage, Decodable {
     public let type = MessageType.Invocation
     public let target: String
-    private var arguments: UnkeyedDecodingContainer?
+    public var arguments: UnkeyedDecodingContainer?
 
     public required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)

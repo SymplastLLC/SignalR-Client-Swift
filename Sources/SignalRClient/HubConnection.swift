@@ -628,6 +628,10 @@ public class ArgumentExtractor {
     public func getArgument<T: Decodable>(type: T.Type) throws -> T? {
         return try clientInvocationMessage.getArgument(type: type)
     }
+    
+    public var arguments: UnkeyedDecodingContainer? {
+        clientInvocationMessage.arguments
+    }
 
     /**
      Checks if there are more arguments to retrieve.
