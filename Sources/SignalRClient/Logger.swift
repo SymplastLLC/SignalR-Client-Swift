@@ -112,7 +112,7 @@ class FilteringLogger: Logger {
     }
 
     func log(logLevel: LogLevel, message: @autoclosure () -> String) {
-        if let delegate {
+        if let delegate, logLevel.rawValue <= minLogLevel.rawValue {
             delegate.didLog(message())
         } else {
             if (logLevel.rawValue <= minLogLevel.rawValue) {
