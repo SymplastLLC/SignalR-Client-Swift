@@ -14,6 +14,7 @@ public enum LogLevel: Int {
     case warning = 2
     case info = 3
     case debug = 4
+    case all = 5
 }
 
 /**
@@ -32,10 +33,16 @@ public protocol Logger {
 public extension LogLevel {
     func toString() -> String {
         switch (self) {
-        case .error: return "error"
-        case .warning: return "warning"
-        case .info: return "info"
-        case .debug: return "debug"
+        case .error: 
+            "error"
+        case .warning: 
+            "warning"
+        case .info: 
+            "info"
+        case .debug: 
+            "debug"
+        case .all:
+            "all"
         }
     }
 }

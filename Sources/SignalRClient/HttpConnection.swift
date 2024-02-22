@@ -253,7 +253,7 @@ public class HttpConnection: Connection {
     }
 
     fileprivate func transportDidReceiveData(_ data: Data) {
-        logger.log(logLevel: .debug, message: "Received data from transport")
+        logger.log(logLevel: .all, message: "Received data from transport")
         options.callbackQueue.async { [weak self] in
             guard let self else { return }
             self.delegate?.connectionDidReceiveData(connection: self, data: data)
