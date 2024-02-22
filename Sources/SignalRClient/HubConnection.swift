@@ -514,21 +514,21 @@ public class HubConnection {
 
     private func resetKeepAlive() {
         if connection.inherentKeepAlive {
-            logger.log(logLevel: .debug, message: "Not scheduling sending keep alive - inherent keep alive")
+            logger.log(logLevel: .all, message: "Not scheduling sending keep alive - inherent keep alive")
             return
         }
 
         guard let keepAliveInterval = keepAliveIntervalInSeconds else {
-            logger.log(logLevel: .debug, message: "Not scheduling sending keep alive - keep alive disabled")
+            logger.log(logLevel: .all, message: "Not scheduling sending keep alive - keep alive disabled")
             return
         }
 
         hubConnectionQueue.sync {
             guard keepAlivePingTask != nil else {
-                logger.log(logLevel: .debug, message: "Connection stopped - ignore keep alive reset")
+                logger.log(logLevel: .all, message: "Connection stopped - ignore keep alive reset")
                 return
             }
-            logger.log(logLevel: .debug, message: "Resetting keep alive")
+            logger.log(logLevel: .all, message: "Resetting keep alive")
             keepAlivePingTask?.cancel()
             let workItem = DispatchWorkItem { [weak self] in self?.sendKeepAlivePing() }
             hubConnectionQueue.asyncAfter(deadline: .now() + keepAliveInterval, execute: workItem)
@@ -537,21 +537,21 @@ public class HubConnection {
     }
 
     private func sendKeepAlivePing() {
-        logger.log(logLevel: .debug, message: "Send keep alive called")
+        logger.log(logLevel: .all, message: "Send keep alive called")
         guard handshakeStatus.isHandled else {
-            logger.log(logLevel: .debug, message: "Send keep alive called but not connected")
+            logger.log(logLevel: .all, message: "Send keep alive called but not connected")
             cleanUpKeepAlive()
             return
         }
 
         do {
             let cachedPingMessage = try hubProtocol.writeMessage(message: PingMessage.instance)
-            logger.log(logLevel: .debug, message: "Sending keep alive")
+            logger.log(logLevel: .all, message: "Sending keep alive")
             connection.send(data: cachedPingMessage, sendDidComplete: { [weak self] error in
                 if let error = error {
-                    self?.logger.log(logLevel: .error, message: "Keep alive send error:  \(error.localizedDescription)")
+                    self?.logger.log(logLevel: .all, message: "Keep alive send error:  \(error.localizedDescription)")
                 } else {
-                    self?.logger.log(logLevel: .debug, message: "Keep alive sent successfully")
+                    self?.logger.log(logLevel: .all, message: "Keep alive sent successfully")
                 }
                 self?.resetKeepAlive()
             })

@@ -190,7 +190,7 @@ public class HttpConnection: Connection {
     }
 
     public func send(data: Data, sendDidComplete: @escaping (_ error: Error?) -> Void) {
-        logger.log(logLevel: .debug, message: "Sending data")
+        logger.log(logLevel: .all, message: "Sending data")
         guard state == .connected else {
             logger.log(logLevel: .error, message: "Sending data failed - connection not in the 'connected' state")
 
@@ -253,7 +253,7 @@ public class HttpConnection: Connection {
     }
 
     fileprivate func transportDidReceiveData(_ data: Data) {
-        logger.log(logLevel: .debug, message: "Received data from transport")
+        logger.log(logLevel: .all, message: "Received data from transport")
         options.callbackQueue.async { [weak self] in
             guard let self else { return }
             self.delegate?.connectionDidReceiveData(connection: self, data: data)
