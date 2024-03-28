@@ -35,21 +35,15 @@ public protocol HubMessage {
     var type: MessageType { get }
 }
 
-struct TestMsg<T: Codable>: Codable {
-    var type: MessageType
-    var result: TestResult<T>
+struct TestInvocationMsg<T: Codable>: Codable {
+    private let type: MessageType
+    var target: String
+    var arguments: T
     
-    init(type: MessageType, result: TestResult<T>) {
-        self.type = type
-        self.result = result
-    }
-    
-    struct TestResult<U: Codable>: Codable {
-        var data: U
-        
-        init(data: U) {
-            self.data = data
-        }
+    init(target: String, arguments: T) {
+        type = .Invocation
+        self.target = target
+        self.arguments = arguments
     }
 }
 
