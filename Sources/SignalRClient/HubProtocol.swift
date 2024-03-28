@@ -35,6 +35,18 @@ public protocol HubMessage {
     var type: MessageType { get }
 }
 
+struct TestInvocationMsg<T: Codable>: Codable {
+    private let type: MessageType
+    var target: String
+    var arguments: T
+    
+    init(target: String, arguments: T) {
+        type = .Invocation
+        self.target = target
+        self.arguments = arguments
+    }
+}
+
 public class ServerInvocationMessage: HubMessage, Encodable {
     public let type = MessageType.Invocation
     public let invocationId: String?
