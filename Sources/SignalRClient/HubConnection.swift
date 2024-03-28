@@ -103,6 +103,16 @@ public class HubConnection {
             }
         }
     }
+    
+    /**
+     To test subscribed events. Simulate calls from a hub server.
+     */
+    public func manuallySendMsg<T: Codable>(_ obj: T, type: MessageType) {
+        let testMsg = TestMsg(type: type, result: TestMsg.TestResult(data: obj))
+        let encoder = JSONEncoder()
+        guard let encoded = try? encoder.encode(testMsg) else { return }
+        connectionDidReceiveData(data: encoded)
+    }
 
     /**
      Stops the connection.
