@@ -38,9 +38,9 @@ public protocol HubMessage {
 struct TestInvocationMsg<T: Codable>: Codable {
     private let type: MessageType
     var target: String
-    var arguments: T
+    var arguments: T?
     
-    init(target: String, arguments: T) {
+    init(target: String, arguments: T?) {
         type = .Invocation
         self.target = target
         self.arguments = arguments

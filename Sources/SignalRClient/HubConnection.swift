@@ -107,7 +107,7 @@ public class HubConnection {
     /**
      To test subscribed events. Simulate calls from a hub server.
      */
-    public func manuallySendInvocationMsg<T: Codable>(target: String, _ obj: T) {
+    public func manuallySendInvocationMsg<T: Codable>(target: String, _ obj: T?) {
         let testMsg = TestInvocationMsg(target: target, arguments: obj)
         let encoder = JSONEncoder()
         guard let encoded = try? encoder.encode(testMsg) else { return }
