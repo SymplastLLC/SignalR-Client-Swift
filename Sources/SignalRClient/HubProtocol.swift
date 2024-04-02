@@ -18,6 +18,7 @@ public protocol HubProtocol {
     var version: Int { get }
     var type: ProtocolType { get }
     func parseMessages(input: Data) throws -> [HubMessage]
+    func createHubMessage(payload: Data) throws -> HubMessage
     func writeMessage(message: HubMessage) throws -> Data
 }
 
