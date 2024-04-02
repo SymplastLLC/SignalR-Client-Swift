@@ -111,7 +111,7 @@ public class HubConnection {
         let testMsg = TestInvocationMsg(target: target, arguments: obj)
         let encoder = JSONEncoder()
         guard let encoded = try? encoder.encode(testMsg) else { return }
-        connectionDidReceiveData(data: encoded)
+        connectionDidReceiveData(data: encoded, manualCall: true)
     }
 
     /**
@@ -364,7 +364,7 @@ public class HubConnection {
         return true
     }
 
-    fileprivate func connectionDidReceiveData(data: Data) {
+    fileprivate func connectionDidReceiveData(data: Data, manualCall: Bool = false) {
         logger.log(logLevel: .debug, message: "Data received")
 
         var dataTmp = data
@@ -398,7 +398,13 @@ public class HubConnection {
         }
 
         do {
-            let messages = try hubProtocol.parseMessages(input: dataTmp)
+            let messages: [any HubMessage]
+            if manualCall {
+                let message = try hubProtocol.createHubMessage(payload: dataTmp)
+                messages = [message]
+            } else {
+                messages = try hubProtocol.parseMessages(input: dataTmp)
+            }
             for incomingMessage in messages {
                 switch(incomingMessage.type) {
                 case MessageType.Completion:
