@@ -45,8 +45,11 @@ internal class ReconnectableConnection: Connection {
         self.underlyingConnection = connectionFactory()
         self.callbackQueue = callbackQueue
     }
-
-    func start() {
+    
+    func start(resetRetryAttemts: Bool) {
+        if resetRetryAttemts {
+            resetRetryAttempts()
+        }
         logger.log(logLevel: .info, message: "Starting reconnectable connection")
         if changeState(from: [.disconnected], to: .starting) != nil {
             wrappedDelegate = ReconnectableConnectionDelegate(connection: self)
@@ -118,8 +121,11 @@ internal class ReconnectableConnection: Connection {
         logger.log(logLevel: .debug, message: "Attempting to restart connection")
         let currentState = state
         if currentState == .starting || currentState == .reconnecting {
+           
             let retryContext = updateAndCreateRetryContext(error: error)
+         
             let nextAttemptInterval = reconnectPolicy.nextAttemptInterval(retryContext: retryContext)
+            delegate?.currentReconnectionAttempt(currentAttempt: retryContext.failedAttemptsCount)
             logger.log(logLevel: .debug, message: "nextAttemptInterval: \(nextAttemptInterval), RetryContext: \(retryContext)")
             if nextAttemptInterval != .never {
                 logger.log(logLevel: .debug, message: "Scheduling reconnect attempt at: \(nextAttemptInterval)")
@@ -177,6 +183,10 @@ internal class ReconnectableConnection: Connection {
     }
 
     private class ReconnectableConnectionDelegate: ConnectionDelegate {
+        func currentReconnectionAttempt(currentAttempt: Int) {
+            connection?.delegate?.currentReconnectionAttempt(currentAttempt: currentAttempt)
+        }
+        
         private weak var connection: ReconnectableConnection?
 
         init(connection: ReconnectableConnection) {

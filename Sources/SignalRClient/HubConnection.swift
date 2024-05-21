@@ -77,11 +77,11 @@ public class HubConnection {
 
      - note: Use `HubConnectionDelegate` to receive connection lifecycle notifications.
     */
-    public func start() {
+    public func start(resetRetryAttemts: Bool) {
         self.connectionDelegate = HubConnectionConnectionDelegate(hubConnection: self)
         self.connection.delegate = connectionDelegate
         logger.log(logLevel: .info, message: "Starting hub connection")
-        connection.start()
+        connection.start(resetRetryAttemts: resetRetryAttemts)
     }
 
     fileprivate func initiateHandshake() {
@@ -523,6 +523,12 @@ public class HubConnection {
             self?.delegate?.connectionWillReconnect(error: error)
         }
     }
+    
+    fileprivate func currentReconnectionAttempt(currentAttempt: Int) {
+        callbackQueue.async { [weak self] in
+            self?.delegate?.currentReconnectionAttempt(currentAttempt: currentAttempt)
+        }
+    }
 
     fileprivate func connectionDidReconnect() {
         initiateHandshake()
@@ -587,6 +593,8 @@ public class HubConnection {
 }
 
 fileprivate class HubConnectionConnectionDelegate: ConnectionDelegate {
+  
+    
     private weak var hubConnection: HubConnection?
     init(hubConnection: HubConnection) {
         self.hubConnection = hubConnection
@@ -614,6 +622,10 @@ fileprivate class HubConnectionConnectionDelegate: ConnectionDelegate {
 
     func connectionDidReconnect() {
         hubConnection?.connectionDidReconnect()
+    }
+    
+    func currentReconnectionAttempt(currentAttempt: Int) {
+        hubConnection?.currentReconnectionAttempt(currentAttempt: currentAttempt)
     }
 }
 

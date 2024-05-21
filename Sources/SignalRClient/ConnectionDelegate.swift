@@ -15,6 +15,7 @@ public protocol ConnectionDelegate: AnyObject {
     func connectionDidClose(error: Error?)
     func connectionWillReconnect(error: Error)
     func connectionDidReconnect()
+    func currentReconnectionAttempt(currentAttempt: Int)
 }
 
 public extension ConnectionDelegate {
