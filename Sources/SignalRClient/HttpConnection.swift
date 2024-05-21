@@ -56,7 +56,7 @@ public class HttpConnection: Connection {
         logger.log(logLevel: .debug, message: "HttpConnection deinit")
     }
 
-    public func start() {
+    public func start(resetRetryAttemts: Bool) {
         logger.log(logLevel: .info, message: "Starting connection")
 
         if changeState(from: .initial, to: .connecting) == nil {

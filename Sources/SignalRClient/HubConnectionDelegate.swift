@@ -49,9 +49,12 @@ public protocol HubConnectionDelegate: AnyObject {
      Invoked when the connection reconnected successfully.
     */
     func connectionDidReconnect()
+    
+    func currentReconnectionAttempt(currentAttempt: Int)
 }
 
 public extension HubConnectionDelegate {
     func connectionWillReconnect(error: Error) {}
     func connectionDidReconnect() {}
+    
 }
