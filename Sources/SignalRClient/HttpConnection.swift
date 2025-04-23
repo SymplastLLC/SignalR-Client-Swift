@@ -99,20 +99,20 @@ public class HttpConnection: Connection {
                 self?.failOpenWithError(error: e, changeState: true)
                 return
             }
-
+            
             guard let httpResponse = httpResponse else {
                 self?.logger.log(logLevel: .error, message: "Negotiate returned (nil) httpResponse")
                 self?.failOpenWithError(error: SignalRError.invalidNegotiationResponse(message: "negotiate returned nil httpResponse."), changeState: true)
                 return
             }
-
+            
             if httpResponse.statusCode == 200 {
                 self?.logger.log(logLevel: .debug, message: "Negotiate completed with OK status code")
-
+                
                 do {
                     let payload = httpResponse.contents
                     self?.logger.log(logLevel: .debug, message: "Negotiate response: \(payload != nil ? String(data: payload!, encoding: .utf8) ?? "(nil)" : "(nil)")")
-
+                    
                     switch try NegotiationPayloadParser.parse(payload: payload) {
                     case let redirection as Redirection:
                         self?.logger.log(logLevel: .debug, message: "Negotiate redirects to \(redirection.url)")
@@ -131,6 +131,8 @@ public class HttpConnection: Connection {
                     self?.logger.log(logLevel: .error, message: "Parsing negotiate response failed: \(error)")
                     self?.failOpenWithError(error: error, changeState: true)
                 }
+            } else if (100...199).contains(httpResponse.statusCode) {
+                self?.logger.log(logLevel: .error, message: "HTTP request error. statusCode: \(httpResponse.statusCode)\ndescription:\(httpResponse.contents != nil ? String(data: httpResponse.contents!, encoding: .utf8) ?? "(nil)" : "(nil)")")
             } else {
                 self?.logger.log(logLevel: .error, message: "HTTP request error. statusCode: \(httpResponse.statusCode)\ndescription:\(httpResponse.contents != nil ? String(data: httpResponse.contents!, encoding: .utf8) ?? "(nil)" : "(nil)")")
                 self?.failOpenWithError(error: SignalRError.webError(statusCode: httpResponse.statusCode), changeState: true)
