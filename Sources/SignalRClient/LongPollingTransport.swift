@@ -49,6 +49,8 @@ public class LongPollingTransport: Transport {
             } else if let response = responseOptional {
                 if response.statusCode == 200 {
                     sendDidComplete(nil)
+                } else if (100...199).contains(response.statusCode) {
+                    sendDidComplete(nil)
                 } else {
                     sendDidComplete(SignalRError.webError(statusCode: response.statusCode))
                 }
