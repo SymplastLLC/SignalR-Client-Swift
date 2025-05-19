@@ -9,6 +9,7 @@
 import Foundation
 
 public protocol Connection {
+    var state: HttpConnection.State { get }
     var delegate: ConnectionDelegate? { get set }
     var inherentKeepAlive: Bool { get }
     var connectionId: String? { get }

@@ -43,8 +43,12 @@ public class HubConnection {
      Gets the connections connectionId. This value will be cleared when the connection is stopped and will have a new value every time the connection is
      successfully started.
      */
-    public var connectionId: String? {
+    private var connectionId: String? {
         return connection.connectionId
+    }
+    
+    public var isConnected: Bool {
+        connection.state == .connected && handshakeStatus.isHandled
     }
 
     /**
@@ -90,7 +94,7 @@ public class HubConnection {
         // TODO: add negative test (e.g. invalid protocol)
         let handshakeRequest = HandshakeProtocol.createHandshakeRequest(hubProtocol: hubProtocol)
         guard let data = "\(handshakeRequest)".data(using: .utf8) else {
-            delegate?.connectionDidFailToOpen(error: SignalRError.connectionIsBeingClosed)
+            delegate?.hubConnectionDidFailToOpen(error: SignalRError.connectionIsBeingClosed)
             return
         }
         logger.log(logLevel: .debug, message: "Sending handshake request: \(handshakeRequest)")
@@ -99,7 +103,7 @@ public class HubConnection {
                 self?.logger.log(logLevel: .error, message: "Sending handshake request failed: \(e)")
                 // TODO: (BUG) if this fails when reconnecting the callback should not be called and there
                 // will be no further reconnect attempts
-                self?.delegate?.connectionDidFailToOpen(error: e)
+                self?.delegate?.hubConnectionDidFailToOpen(error: e)
             }
         }
     }
@@ -380,18 +384,18 @@ public class HubConnection {
                 // will be no further reconnect attempts
                 logger.log(logLevel: .error, message: "Parsing handshake response failed: \(e)")
                 callbackQueue.async { [weak self] in
-                    self?.delegate?.connectionDidFailToOpen(error: e)
+                    self?.delegate?.hubConnectionDidFailToOpen(error: e)
                 }
                 return
             }
             if originalHandshakeStatus.isReconnect {
                 callbackQueue.async { [weak self] in
-                    self?.delegate?.connectionDidReconnect()
+                    self?.delegate?.hubConnectionDidReconnect()
                 }
             } else {
                 callbackQueue.async { [weak self] in
                     guard let self else { return }
-                    self.delegate?.connectionDidOpen(hubConnection: self)
+                    self.delegate?.hubConnectionDidOpen(hubConnection: self)
                 }
                 resetKeepAlive()
             }
@@ -507,20 +511,20 @@ public class HubConnection {
         }
         handshakeStatus = .needsHandling(false)
         callbackQueue.async { [weak self] in
-            self?.delegate?.connectionDidClose(error: error)
+            self?.delegate?.hubConnectionDidClose(error: error)
         }
     }
 
     fileprivate func connectionDidFailToOpen(error: Error) {
         callbackQueue.async { [weak self] in
-            self?.delegate?.connectionDidFailToOpen(error: error)
+            self?.delegate?.hubConnectionDidFailToOpen(error: error)
         }
     }
 
     fileprivate func connectionWillReconnect(error: Error) {
         handshakeStatus = .needsHandling(true)
         callbackQueue.async { [weak self] in
-            self?.delegate?.connectionWillReconnect(error: error)
+            self?.delegate?.hubConnectionWillReconnect(error: error)
         }
     }
     
@@ -600,7 +604,11 @@ fileprivate class HubConnectionConnectionDelegate: ConnectionDelegate {
         self.hubConnection = hubConnection
     }
 
-    func connectionDidOpen(connection: Connection) {
+    func transportConnectionDidOpen(connection: Connection) {
+        hubConnection?.initiateHandshake()
+    }
+    
+    func hubConnectionDidOpen(connection: Connection) {
         hubConnection?.initiateHandshake()
     }
 

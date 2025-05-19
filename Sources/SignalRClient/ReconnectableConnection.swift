@@ -17,7 +17,8 @@ internal class ReconnectableConnection: Connection {
 
     private var underlyingConnection: Connection
     private var wrappedDelegate: ConnectionDelegate?
-    private var state = State.disconnected
+    private var reconnectableState = State.disconnected
+    var state: HttpConnection.State = .initial
     private var failedAttemptsCount: Int = 0
     private var reconnectStartTime: Date = Date()
 
@@ -61,7 +62,7 @@ internal class ReconnectableConnection: Connection {
 
     func send(data: Data, sendDidComplete: @escaping (Error?) -> Void) {
         logger.log(logLevel: .info, message: "Received send request")
-        guard state != .reconnecting else {
+        guard reconnectableState != .reconnecting else {
             // TODO: consider buffering
             // Never synchronously respond to avoid upstream deadlocks based on async assumptions
             callbackQueue.async {
@@ -86,8 +87,8 @@ internal class ReconnectableConnection: Connection {
         var shouldStart = false
         var currentState = State.disconnected
         connectionQueue.sync {
-            shouldStart = state == .starting || state == .reconnecting
-            currentState = state
+            shouldStart = reconnectableState == .starting || reconnectableState == .reconnecting
+            currentState = reconnectableState
         }
 
         if (!shouldStart) {
@@ -108,9 +109,20 @@ internal class ReconnectableConnection: Connection {
             return "Attempting to change state from: '\(initialStates)' to: '\(to)'"
         }())
         connectionQueue.sync {
-            if from?.contains(state) ?? true {
-                previousState = state
-                state = to
+            if from?.contains(reconnectableState) ?? true {
+                previousState = reconnectableState
+                reconnectableState = to
+                
+                switch to {
+                case .disconnected:
+                    state = .stopped
+                case .starting, .reconnecting:
+                    state = .connecting
+                case .running:
+                    state = .connected
+                case .stopping:
+                    state = .stopped
+                }
             }
         }
         logger.log(logLevel: .debug, message: "Changing state to: '\(to)' \(previousState == nil ? "failed" : "succeeded")")
@@ -119,7 +131,7 @@ internal class ReconnectableConnection: Connection {
 
     private func restartConnection(error: Error?) {
         logger.log(logLevel: .debug, message: "Attempting to restart connection")
-        let currentState = state
+        let currentState = reconnectableState
         if currentState == .starting || currentState == .reconnecting {
            
             let retryContext = updateAndCreateRetryContext(error: error)
@@ -193,7 +205,7 @@ internal class ReconnectableConnection: Connection {
             self.connection = connection
         }
 
-        func connectionDidOpen(connection: Connection) {
+        func hubConnectionDidOpen(connection: Connection) {
             guard let unwrappedConnection = self.connection else {
                 return
             }
@@ -201,7 +213,24 @@ internal class ReconnectableConnection: Connection {
             unwrappedConnection.resetRetryAttempts()
             let previousState = unwrappedConnection.changeState(from: [.starting, .reconnecting], to: .running)
             if previousState == .starting {
-                unwrappedConnection.delegate?.connectionDidOpen(connection: connection)
+                unwrappedConnection.delegate?.transportConnectionDidOpen(connection: connection)
+            } else if previousState == .reconnecting {
+                unwrappedConnection.delegate?.connectionDidReconnect()
+            } else {
+                unwrappedConnection.logger.log(logLevel: .debug, message: "Internal error - unexpected connection state")
+                // TODO: consider using dispatchGroup to block stop while reconnecting/starting.
+            }
+        }
+
+        func transportConnectionDidOpen(connection: Connection) {
+            guard let unwrappedConnection = self.connection else {
+                return
+            }
+            unwrappedConnection.logger.log(logLevel: .debug, message: "Connection opened successfully")
+            unwrappedConnection.resetRetryAttempts()
+            let previousState = unwrappedConnection.changeState(from: [.starting, .reconnecting], to: .running)
+            if previousState == .starting {
+                unwrappedConnection.delegate?.hubConnectionDidOpen(connection: connection)
             } else if previousState == .reconnecting {
                 unwrappedConnection.delegate?.connectionDidReconnect()
             } else {
@@ -229,7 +258,7 @@ internal class ReconnectableConnection: Connection {
                 connection?.restartConnection(error: error)
             } else {
                 unwrappedConnection.logger.log(logLevel: .debug, message: "Assuming clean stop - stopping connection")
-                if  unwrappedConnection.state != .stopping {
+                if  unwrappedConnection.reconnectableState != .stopping {
                     // This is wired to the transport so it should not be fired in the starting, reconnecting
                     // or disconnected state (maybe there is a tiny window when it can happen right after a
                     // the transport connected successfully. For now just log an error.
