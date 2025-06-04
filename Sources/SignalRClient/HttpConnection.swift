@@ -8,7 +8,15 @@
 
 import Foundation
 
+
 public class HttpConnection: Connection {
+    public enum State: String {
+        case initial = "initial"
+        case connecting = "connecting"
+        case connected = "connected"
+        case stopped = "stopped"
+    }
+
     private let connectionQueue: DispatchQueue
     private let startDispatchGroup: DispatchGroup
 
@@ -19,7 +27,7 @@ public class HttpConnection: Connection {
 
     private var transportDelegate: TransportDelegate?
 
-    private var state: State
+    public var state: State
     private var transport: Transport?
     private var stopError: Error?
 
@@ -29,12 +37,7 @@ public class HttpConnection: Connection {
         return transport?.inherentKeepAlive ?? true
     }
 
-    private enum State: String {
-        case initial = "initial"
-        case connecting = "connecting"
-        case connected = "connected"
-        case stopped = "stopped"
-    }
+   
 
     public convenience init(url: URL, options: HttpConnectionOptions = HttpConnectionOptions(), logger: Logger = NullLogger()) {
         self.init(url: url, options: options, transportFactory: DefaultTransportFactory(logger: logger), logger: logger)
@@ -247,7 +250,7 @@ public class HttpConnection: Connection {
             self.connectionId = connectionId
             options.callbackQueue.async { [weak self] in
                 guard let self else { return }
-                self.delegate?.connectionDidOpen(connection: self)
+                self.delegate?.transportConnectionDidOpen(connection: self)
             }
         } else {
             logger.log(logLevel: .debug, message: "Connection is being stopped while the transport is starting")

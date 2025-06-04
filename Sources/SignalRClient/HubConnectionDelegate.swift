@@ -22,39 +22,39 @@ public protocol HubConnectionDelegate: AnyObject {
 
      - parameter hubConnection: the newly opened `HubConnection`
     */
-    func connectionDidOpen(hubConnection: HubConnection)
+    func hubConnectionDidOpen(hubConnection: HubConnection)
 
     /**
      Invoked when the connection to the server failed to open.
 
      - parameter error: contains failure details
     */
-    func connectionDidFailToOpen(error: Error)
+    func hubConnectionDidFailToOpen(error: Error)
 
     /**
      Invoked when the connection to the server was closed.
 
      - parameter error: If the connection was closed cleanly `nil`. Otherwise contains failure detais
     */
-    func connectionDidClose(error: Error?)
+    func hubConnectionDidClose(error: Error?)
 
     /**
      Invoked when the connection will try to reconnect.
 
      - parameter error: Contains the reason for reconnect
     */
-    func connectionWillReconnect(error: Error)
+    func hubConnectionWillReconnect(error: Error)
 
     /**
      Invoked when the connection reconnected successfully.
     */
-    func connectionDidReconnect()
+    func hubConnectionDidReconnect()
     
     func currentReconnectionAttempt(currentAttempt: Int)
 }
 
 public extension HubConnectionDelegate {
-    func connectionWillReconnect(error: Error) {}
-    func connectionDidReconnect() {}
+    func hubConnectionWillReconnect(error: Error) {}
+    func hubConnectionDidReconnect() {}
     
 }
