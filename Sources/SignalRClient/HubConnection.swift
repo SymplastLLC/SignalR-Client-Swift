@@ -43,8 +43,8 @@ public class HubConnection {
      Gets the connections connectionId. This value will be cleared when the connection is stopped and will have a new value every time the connection is
      successfully started.
      */
-    private var connectionId: String? {
-        return connection.connectionId
+    public var connectionId: String? {
+        connection.connectionId
     }
     
     public var isConnected: Bool {
