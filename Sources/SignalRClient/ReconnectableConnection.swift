@@ -21,6 +21,8 @@ internal class ReconnectableConnection: Connection {
     var state: HttpConnection.State = .initial
     private var failedAttemptsCount: Int = 0
     private var reconnectStartTime: Date = Date()
+    /// The next reconnect attempt while it waits out its retry interval. Guarded by `connectionQueue`.
+    private var scheduledReconnect: DispatchWorkItem?
 
     private enum State: String {
         case disconnected = "disconnected"
@@ -93,6 +95,25 @@ internal class ReconnectableConnection: Connection {
         underlyingConnection.stop(stopError: error)
     }
 
+    func reconnectNow() {
+        var pendingReconnect: DispatchWorkItem?
+        connectionQueue.sync {
+            guard reconnectableState == .reconnecting else { return }
+            pendingReconnect = scheduledReconnect
+            scheduledReconnect = nil
+        }
+        // An attempt that is already running is left to finish.
+        guard let pendingReconnect else {
+            logger.log(logLevel: .debug, message: "No reconnect attempt is waiting. Ignoring reconnect request")
+            return
+        }
+        logger.log(logLevel: .info, message: "Running the scheduled reconnect attempt now")
+        pendingReconnect.cancel()
+        DispatchQueue.main.async { [weak self] in
+            self?.startInternal()
+        }
+    }
+
     private func startInternal() {
         logger.log(logLevel: .debug, message: "Starting or reconnecting")
         var shouldStart = false
@@ -153,9 +174,13 @@ internal class ReconnectableConnection: Connection {
             if nextAttemptInterval != .never {
                 logger.log(logLevel: .debug, message: "Scheduling reconnect attempt at: \(nextAttemptInterval)")
                 // TODO: not great but running on the connectionQueue deadlocks
-                DispatchQueue.main.asyncAfter(deadline: .now() + nextAttemptInterval) { [weak self] in
-                    self?.startInternal()
+                let reconnect = DispatchWorkItem { [weak self] in
+                    guard let self else { return }
+                    self.connectionQueue.sync { self.scheduledReconnect = nil }
+                    self.startInternal()
                 }
+                connectionQueue.sync { scheduledReconnect = reconnect }
+                DispatchQueue.main.asyncAfter(deadline: .now() + nextAttemptInterval, execute: reconnect)
                 // running on a random (possibly main) queue but HubConnection will
                 // dispatch to the configured queue
                 if (currentState == .reconnecting && retryContext.failedAttemptsCount == 0) {

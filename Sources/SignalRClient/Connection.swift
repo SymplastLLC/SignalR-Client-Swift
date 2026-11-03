@@ -19,12 +19,17 @@ public protocol Connection {
     /// Drops a connection that is no longer usable (e.g. the server went silent) the way a network
     /// failure would: a reconnectable connection reconnects, any other one closes with `error`.
     func abort(error: Error) -> Void
+    /// Runs a reconnect attempt that is waiting out its retry interval at once (e.g. the network is back).
+    /// Does nothing unless the connection is reconnecting.
+    func reconnectNow() -> Void
 }
 
 public extension Connection {
     func abort(error: Error) -> Void {
         stop(stopError: error)
     }
+
+    func reconnectNow() -> Void {}
 
     func start(resetRetryAttemts: Bool = false) -> Void {
         start(resetRetryAttemts: resetRetryAttemts)

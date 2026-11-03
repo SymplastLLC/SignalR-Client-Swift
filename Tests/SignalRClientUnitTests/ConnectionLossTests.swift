@@ -161,6 +161,48 @@ class ConnectionLossTests: XCTestCase {
         XCTAssertFalse(delegate.didClose)
     }
 
+    // MARK: ReconnectableConnection.reconnectNow
+
+    func testReconnectNowSkipsTheRetryInterval() {
+        let delegate = RecordingConnectionDelegate()
+        let didReconnect = expectation(description: "did reconnect")
+        delegate.onDidReconnect = { didReconnect.fulfill() }
+        let connection = ReconnectableConnection(connectionFactory: { FakeConnection() },
+                                                 reconnectPolicy: DefaultReconnectPolicy(retryIntervals: [.seconds(30)]),
+                                                 callbackQueue: DispatchQueue.main,
+                                                 logger: NullLogger())
+        connection.delegate = delegate
+        connection.start(resetRetryAttemts: false)
+        waitUntil { delegate.didOpen }
+        connection.abort(error: SignalRError.invalidOperation(message: "network lost"))
+        waitUntil { delegate.willReconnect }
+
+        connection.reconnectNow()
+
+        wait(for: [didReconnect], timeout: 2)
+        connection.stop(stopError: nil)
+    }
+
+    func testReconnectNowIsIgnoredWhenConnectionIsRunning() {
+        let delegate = RecordingConnectionDelegate()
+        var createdConnections = 0
+        let connection = ReconnectableConnection(connectionFactory: { createdConnections += 1; return FakeConnection() },
+                                                 reconnectPolicy: DefaultReconnectPolicy(retryIntervals: [.milliseconds(10)]),
+                                                 callbackQueue: DispatchQueue.main,
+                                                 logger: NullLogger())
+        connection.delegate = delegate
+        connection.start(resetRetryAttemts: false)
+        waitUntil { delegate.didOpen }
+        let connectionsBefore = createdConnections
+
+        connection.reconnectNow()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+
+        XCTAssertEqual(createdConnections, connectionsBefore)
+        XCTAssertFalse(delegate.willReconnect)
+        connection.stop(stopError: nil)
+    }
+
     // MARK: Helpers
 
     private func makeOpenHubConnection(connection: FakeConnection,
