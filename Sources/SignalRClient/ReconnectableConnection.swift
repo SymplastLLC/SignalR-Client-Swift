@@ -82,6 +82,17 @@ internal class ReconnectableConnection: Connection {
         }
     }
 
+    func abort(error: Error) {
+        guard reconnectableState == .running else {
+            logger.log(logLevel: .warning, message: "Reconnectable connection is not running. Ignoring abort request")
+            return
+        }
+        logger.log(logLevel: .info, message: "Aborting underlying connection: \(error)")
+        // Stopping only the underlying connection looks like a network failure, so the
+        // `running` -> `reconnecting` path in `ReconnectableConnectionDelegate.connectionDidClose` kicks in.
+        underlyingConnection.stop(stopError: error)
+    }
+
     private func startInternal() {
         logger.log(logLevel: .debug, message: "Starting or reconnecting")
         var shouldStart = false
