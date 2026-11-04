@@ -85,8 +85,17 @@ public class HubConnection {
      - note: Use `HubConnectionDelegate` to receive connection lifecycle notifications.
     */
     public func start(resetRetryAttemts: Bool) {
-        self.connectionDelegate = HubConnectionConnectionDelegate(hubConnection: self)
-        self.connection.delegate = connectionDelegate
+        // Install the connection delegate once. Apps call `start` again while the connection is
+        // connecting or reconnecting, and the connection reads its delegate on its callback queue
+        // then. Replacing the delegate freed one that queue was still using (EXC_BAD_ACCESS in
+        // `ReconnectableConnection.delegate.setter`, "pointer being freed was not allocated").
+        hubConnectionQueue.sync {
+            if connectionDelegate == nil {
+                let delegate = HubConnectionConnectionDelegate(hubConnection: self)
+                connectionDelegate = delegate
+                connection.delegate = delegate
+            }
+        }
         logger.log(logLevel: .info, message: "Starting hub connection")
         connection.start(resetRetryAttemts: resetRetryAttemts)
     }
