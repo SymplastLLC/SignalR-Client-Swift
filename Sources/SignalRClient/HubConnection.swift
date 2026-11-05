@@ -132,7 +132,8 @@ public class HubConnection {
 
     /**
      Runs a reconnect attempt that is waiting out its retry interval at once, e.g. when the device is back online.
-     Does nothing unless the connection is reconnecting; an attempt already in progress is left to finish.
+     Does nothing unless the connection is reconnecting or retrying its first start; an attempt already in
+     progress is left to finish.
      */
     public func reconnectNow() {
         connection.reconnectNow()

@@ -203,6 +203,61 @@ class ConnectionLossTests: XCTestCase {
         connection.stop(stopError: nil)
     }
 
+    func testReconnectNowSkipsTheRetryIntervalOfAFailedFirstStart() {
+        let delegate = RecordingConnectionDelegate()
+        var opensToFail = 0
+        let connection = ReconnectableConnection(connectionFactory: {
+                                                     let fake = FakeConnection()
+                                                     fake.failsToOpen = opensToFail > 0
+                                                     opensToFail -= 1
+                                                     return fake
+                                                 },
+                                                 reconnectPolicy: DefaultReconnectPolicy(retryIntervals: [.seconds(30)]),
+                                                 callbackQueue: DispatchQueue.main,
+                                                 logger: NullLogger())
+        connection.delegate = delegate
+        // The connection creates one in `init`; the first start's own one fails.
+        opensToFail = 1
+        connection.start(resetRetryAttemts: false)
+        waitUntil { !delegate.attempts.isEmpty }
+        XCTAssertFalse(delegate.didOpen)
+
+        connection.reconnectNow()
+
+        waitUntil { delegate.didOpen }
+        XCTAssertFalse(delegate.willReconnect)
+        connection.stop(stopError: nil)
+    }
+
+    func testWillReconnectIsReportedOnceWhenAttemptsAreReset() {
+        let delegate = RecordingConnectionDelegate()
+        var createdConnections = 0
+        let connection = ReconnectableConnection(connectionFactory: {
+                                                     createdConnections += 1
+                                                     let fake = FakeConnection()
+                                                     fake.failsToOpen = createdConnections > 1
+                                                     return fake
+                                                 },
+                                                 reconnectPolicy: DefaultReconnectPolicy(retryIntervals: Array(repeating: .milliseconds(20), count: 50)),
+                                                 callbackQueue: DispatchQueue.main,
+                                                 logger: NullLogger())
+        connection.delegate = delegate
+        // The connection creates one in `init`; the first start's own one opens, the reconnects fail.
+        createdConnections = 0
+        connection.start(resetRetryAttemts: false)
+        waitUntil { delegate.didOpen }
+        connection.abort(error: SignalRError.invalidOperation(message: "network lost"))
+        waitUntil { delegate.willReconnect }
+
+        // An app call while reconnecting: the client resets the attempt count, as `reconnectNow()` in the apps does.
+        connection.start(resetRetryAttemts: true)
+        connection.reconnectNow()
+        waitUntil { delegate.attempts.filter { $0 == 0 }.count >= 2 && delegate.attempts.count >= 4 }
+
+        XCTAssertEqual(delegate.willReconnectCount, 1)
+        connection.stop(stopError: nil)
+    }
+
     // MARK: Helpers
 
     private func makeOpenHubConnection(connection: FakeConnection,
@@ -244,6 +299,8 @@ private final class FakeConnection: Connection {
     weak var delegate: ConnectionDelegate?
     var inherentKeepAlive = false
     var connectionId: String? = "fake-connection"
+    /// `start` reports a failed open instead of opening.
+    var failsToOpen = false
 
     private let lock = NSLock()
     private var sent: [String] = []
@@ -259,6 +316,12 @@ private final class FakeConnection: Connection {
     }
 
     func start(resetRetryAttemts: Bool) {
+        guard !failsToOpen else {
+            DispatchQueue.global().async { [weak self] in
+                self?.delegate?.connectionDidFailToOpen(error: SignalRError.invalidOperation(message: "open failed"))
+            }
+            return
+        }
         state = .connected
         delegate?.transportConnectionDidOpen(connection: self)
     }
@@ -294,6 +357,11 @@ private final class RecordingConnectionDelegate: ConnectionDelegate {
     var didOpen = false
     var willReconnect = false
     var didClose = false
+    private let lock = NSLock()
+    private var reconnectReports = 0
+    private var reportedAttempts: [Int] = []
+    var willReconnectCount: Int { lock.lock(); defer { lock.unlock() }; return reconnectReports }
+    var attempts: [Int] { lock.lock(); defer { lock.unlock() }; return reportedAttempts }
     var onWillReconnect: (() -> Void)?
     var onDidReconnect: (() -> Void)?
 
@@ -303,9 +371,12 @@ private final class RecordingConnectionDelegate: ConnectionDelegate {
     func connectionDidReceiveData(connection: Connection, data: Data) {}
     func connectionDidClose(error: Error?) { didClose = true }
     func connectionWillReconnect(error: Error) {
+        lock.lock(); reconnectReports += 1; lock.unlock()
         willReconnect = true
         onWillReconnect?()
     }
     func connectionDidReconnect() { onDidReconnect?() }
-    func currentReconnectionAttempt(currentAttempt: Int) {}
+    func currentReconnectionAttempt(currentAttempt: Int) {
+        lock.lock(); reportedAttempts.append(currentAttempt); lock.unlock()
+    }
 }

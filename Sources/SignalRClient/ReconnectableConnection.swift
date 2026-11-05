@@ -23,6 +23,10 @@ internal class ReconnectableConnection: Connection {
     private var reconnectStartTime: Date = Date()
     /// The next reconnect attempt while it waits out its retry interval. Guarded by `connectionQueue`.
     private var scheduledReconnect: DispatchWorkItem?
+    /// `connectionWillReconnect` was sent for the current reconnect. A `start(resetRetryAttemts: true)` or
+    /// `reconnectNow()` while reconnecting resets the attempt count, so the count cannot tell the first
+    /// attempt any more. Guarded by `connectionQueue`.
+    private var isReconnectReported = false
 
     private enum State: String {
         case disconnected = "disconnected"
@@ -98,7 +102,8 @@ internal class ReconnectableConnection: Connection {
     func reconnectNow() {
         var pendingReconnect: DispatchWorkItem?
         connectionQueue.sync {
-            guard reconnectableState == .reconnecting else { return }
+            // A first start that fails is retried with the reconnect policy too, so it can be waiting as well.
+            guard reconnectableState == .reconnecting || reconnectableState == .starting else { return }
             pendingReconnect = scheduledReconnect
             scheduledReconnect = nil
         }
@@ -183,7 +188,7 @@ internal class ReconnectableConnection: Connection {
                 DispatchQueue.main.asyncAfter(deadline: .now() + nextAttemptInterval, execute: reconnect)
                 // running on a random (possibly main) queue but HubConnection will
                 // dispatch to the configured queue
-                if (currentState == .reconnecting && retryContext.failedAttemptsCount == 0) {
+                if currentState == .reconnecting && takeReconnectReport() {
                     delegate?.connectionWillReconnect(error: retryContext.error)
                 }
                 return
@@ -223,6 +228,19 @@ internal class ReconnectableConnection: Connection {
         return RetryContext(failedAttemptsCount: attemptsCount, reconnectStartTime: startTime, error: error)
     }
 
+    /// `true` once per reconnect: the first time it is called after the connection was running.
+    private func takeReconnectReport() -> Bool {
+        connectionQueue.sync {
+            guard !isReconnectReported else { return false }
+            isReconnectReported = true
+            return true
+        }
+    }
+
+    private func clearReconnectReport() {
+        connectionQueue.sync { isReconnectReported = false }
+    }
+
     private func resetRetryAttempts() {
         connectionQueue.sync {
             failedAttemptsCount = 0
@@ -247,6 +265,7 @@ internal class ReconnectableConnection: Connection {
             }
             unwrappedConnection.logger.log(logLevel: .debug, message: "Connection opened successfully")
             unwrappedConnection.resetRetryAttempts()
+            unwrappedConnection.clearReconnectReport()
             let previousState = unwrappedConnection.changeState(from: [.starting, .reconnecting], to: .running)
             if previousState == .starting {
                 unwrappedConnection.delegate?.transportConnectionDidOpen(connection: connection)
@@ -264,6 +283,7 @@ internal class ReconnectableConnection: Connection {
             }
             unwrappedConnection.logger.log(logLevel: .debug, message: "Connection opened successfully")
             unwrappedConnection.resetRetryAttempts()
+            unwrappedConnection.clearReconnectReport()
             let previousState = unwrappedConnection.changeState(from: [.starting, .reconnecting], to: .running)
             if previousState == .starting {
                 unwrappedConnection.delegate?.hubConnectionDidOpen(connection: connection)

@@ -20,7 +20,7 @@ public protocol Connection {
     /// failure would: a reconnectable connection reconnects, any other one closes with `error`.
     func abort(error: Error) -> Void
     /// Runs a reconnect attempt that is waiting out its retry interval at once (e.g. the network is back).
-    /// Does nothing unless the connection is reconnecting.
+    /// Does nothing unless the connection is reconnecting or retrying its first start.
     func reconnectNow() -> Void
 }
 
