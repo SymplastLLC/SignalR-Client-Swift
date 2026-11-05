@@ -29,6 +29,8 @@ public class HubConnection {
 
     private let keepAliveIntervalInSeconds: Double?
     private var keepAlivePingTask: DispatchWorkItem?
+    private let serverTimeoutInSeconds: Double?
+    private var serverTimeoutTask: DispatchWorkItem?
 
     private let callbackQueue: DispatchQueue
 
@@ -67,6 +69,7 @@ public class HubConnection {
         self.connection = connection
         self.hubProtocol = hubProtocol
         self.keepAliveIntervalInSeconds = hubConnectionOptions.keepAliveInterval
+        self.serverTimeoutInSeconds = hubConnectionOptions.serverTimeoutInterval
         self.callbackQueue = hubConnectionOptions.callbackQueue
         self.logger = logger
         self.hubConnectionQueue = DispatchQueue(label: "SignalR.hubconnection.queue")
@@ -82,8 +85,17 @@ public class HubConnection {
      - note: Use `HubConnectionDelegate` to receive connection lifecycle notifications.
     */
     public func start(resetRetryAttemts: Bool) {
-        self.connectionDelegate = HubConnectionConnectionDelegate(hubConnection: self)
-        self.connection.delegate = connectionDelegate
+        // Install the connection delegate once. Apps call `start` again while the connection is
+        // connecting or reconnecting, and the connection reads its delegate on its callback queue
+        // then. Replacing the delegate freed one that queue was still using (EXC_BAD_ACCESS in
+        // `ReconnectableConnection.delegate.setter`, "pointer being freed was not allocated").
+        hubConnectionQueue.sync {
+            if connectionDelegate == nil {
+                let delegate = HubConnectionConnectionDelegate(hubConnection: self)
+                connectionDelegate = delegate
+                connection.delegate = delegate
+            }
+        }
         logger.log(logLevel: .info, message: "Starting hub connection")
         connection.start(resetRetryAttemts: resetRetryAttemts)
     }
@@ -119,10 +131,22 @@ public class HubConnection {
     }
 
     /**
+     Runs a reconnect attempt that is waiting out its retry interval at once, e.g. when the device is back online.
+     Does nothing unless the connection is reconnecting or retrying its first start; an attempt already in
+     progress is left to finish.
+     */
+    public func reconnectNow() {
+        connection.reconnectNow()
+    }
+
+    /**
      Stops the connection.
     */
     public func stop() {
         logger.log(logLevel: .info, message: "Stopping hub connection")
+        hubConnectionQueue.sync {
+            cleanUpServerTimeout()
+        }
         connection.stop(stopError: nil)
     }
 
@@ -397,8 +421,13 @@ public class HubConnection {
                     guard let self else { return }
                     self.delegate?.hubConnectionDidOpen(hubConnection: self)
                 }
-                resetKeepAlive()
             }
+            // After a reconnect too: without pings the server drops an idle client after its ClientTimeoutInterval.
+            resetKeepAlive()
+        }
+
+        if !manualCall {
+            resetServerTimeout()
         }
 
         do {
@@ -496,14 +525,10 @@ public class HubConnection {
 
         hubConnectionQueue.sync {
             cleanUpKeepAlive()
+            cleanUpServerTimeout()
         }
 
-        var invocationHandlers: [ServerInvocationHandler] = []
-        hubConnectionQueue.sync {
-            invocationHandlers = [ServerInvocationHandler](pendingCalls.values)
-            pendingCalls.removeAll()
-        }
-
+        let invocationHandlers = takePendingCalls()
         logger.log(logLevel: .info, message: "Terminating \(invocationHandlers.count) pending hub methods")
         let invocationError = error ?? SignalRError.hubInvocationCancelled
         for serverInvocationHandler in invocationHandlers {
@@ -522,10 +547,33 @@ public class HubConnection {
     }
 
     fileprivate func connectionWillReconnect(error: Error) {
+        logger.log(logLevel: .info, message: "HubConnection reconnecting with error: \(error)")
+        // Set first, so invocations made from now on fail at once instead of joining `pendingCalls`.
         handshakeStatus = .needsHandling(true)
+        hubConnectionQueue.sync {
+            cleanUpKeepAlive()
+            cleanUpServerTimeout()
+        }
+
+        // The server answers an invocation only on the connection it came in on, so these would
+        // never complete. Their outcome is unknown: the server may have run the method already.
+        let invocationHandlers = takePendingCalls()
+        logger.log(logLevel: .info, message: "Terminating \(invocationHandlers.count) pending hub methods before reconnecting")
         callbackQueue.async { [weak self] in
+            for serverInvocationHandler in invocationHandlers {
+                serverInvocationHandler.raiseError(error: SignalRError.connectionIsReconnecting)
+            }
             self?.delegate?.hubConnectionWillReconnect(error: error)
         }
+    }
+
+    private func takePendingCalls() -> [ServerInvocationHandler] {
+        var invocationHandlers: [ServerInvocationHandler] = []
+        hubConnectionQueue.sync {
+            invocationHandlers = [ServerInvocationHandler](pendingCalls.values)
+            pendingCalls.removeAll()
+        }
+        return invocationHandlers
     }
     
     fileprivate func currentReconnectionAttempt(currentAttempt: Int) {
@@ -593,6 +641,34 @@ public class HubConnection {
         //Note: needs to be run on hubConnectionQueue to avoid races
         keepAlivePingTask?.cancel()
         keepAlivePingTask = nil
+    }
+
+    private func resetServerTimeout() {
+        guard let serverTimeout = serverTimeoutInSeconds, !connection.inherentKeepAlive else {
+            return
+        }
+
+        hubConnectionQueue.sync {
+            serverTimeoutTask?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in self?.serverTimeoutElapsed(serverTimeout) }
+            hubConnectionQueue.asyncAfter(deadline: .now() + serverTimeout, execute: workItem)
+            serverTimeoutTask = workItem
+        }
+    }
+
+    private func serverTimeoutElapsed(_ serverTimeout: Double) {
+        // Runs on hubConnectionQueue
+        guard serverTimeoutTask != nil else { return }
+        serverTimeoutTask = nil
+        let message = "Server timeout elapsed without receiving a message from the server in \(serverTimeout) seconds."
+        logger.log(logLevel: .warning, message: message)
+        connection.abort(error: SignalRError.invalidOperation(message: message))
+    }
+
+    private func cleanUpServerTimeout() {
+        //Note: needs to be run on hubConnectionQueue to avoid races
+        serverTimeoutTask?.cancel()
+        serverTimeoutTask = nil
     }
 }
 

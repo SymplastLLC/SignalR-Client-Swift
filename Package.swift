@@ -24,5 +24,9 @@ let package = Package(
         .testTarget(
             name: "SignalRClientTests",
             dependencies: ["SignalRClient"]),
+        // Unit tests that need no test server.
+        .testTarget(
+            name: "SignalRClientUnitTests",
+            dependencies: ["SignalRClient"]),
     ]
 )
